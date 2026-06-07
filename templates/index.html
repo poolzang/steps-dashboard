@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>걸음수 분석 대시보드</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+<style>
+:root {
+  --bg:#f7f6f2; --surface:#fff; --surface2:#f1f0eb;
+  --border:rgba(0,0,0,0.09); --text:#1a1a18; --muted:#6b6b67;
+  --blue:#3266ad; --red:#e85a2b; --green:#1d9e75; --amber:#e8b84b;
+  --radius:12px;
+}
+@media(prefers-color-scheme:dark){
+  :root{--bg:#181816;--surface:#222220;--surface2:#2a2a28;--border:rgba(255,255,255,0.09);--text:#f0efe8;--muted:#888780;}
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 1.5rem;display:flex;align-items:center;justify-content:space-between;height:54px;position:sticky;top:0;z-index:100;box-shadow:0 1px 8px rgba(0,0,0,0.06);}
+header h1{font-size:15px;font-weight:700;display:flex;align-items:center;gap:8px;letter-spacing:-0.02em;}
+nav{display:flex;gap:2px;}
+nav button{padding:6px 13px;border-radius:8px;border:none;background:transparent;cursor:pointer;font-size:13px;color:var(--muted);transition:all .15s;font-family:inherit;}
+nav button.active,nav button:hover{background:var(--surface2);color:var(--text);font-weight:500;}
+
+main{max-width:1080px;margin:0 auto;padding:1.5rem;}
+.section{display:none;animation:fadeIn .2s;}
+.section.active{display:block;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:1.25rem;}
+.metric{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem;}
+.metric-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;}
+.metric-value{font-size:26px;font-weight:700;line-height:1;letter-spacing:-0.03em;}
+.metric-sub{font-size:11px;color:var(--muted);margin-top:4px;}
+
+.reward{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem;margin-bottom:1.25rem;display:flex;align-items:center;gap:1rem;}
+.reward-info{flex:1;}
+.reward-title{font-size:14px;font-weight:600;margin-bottom:6px;}
+.prog-bar{height:7px;background:var(--surface2);border-radius:4px;overflow:hidden;}
+.prog-fill{height:100%;background:linear-gradient(90deg,var(--blue),var(--green));border-radius:4px;transition:width .7s cubic-bezier(.4,0,.2,1);}
+.reward-sub{font-size:12px;color:var(--muted);margin-top:5px;}
+
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem;margin-bottom:1rem;}
+.card-title{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:1rem;}
+.chart-wrap{position:relative;width:100%;}
+
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:1rem;margin-bottom:1rem;}
+
+.form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:12px;margin-bottom:1.25rem;}
+.field label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px;font-weight:500;}
+.field input,.field select{width:100%;padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:14px;font-family:inherit;transition:border-color .15s;}
+.field input:focus,.field select:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(50,102,173,.15);}
+
+.btn{padding:9px 18px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font-size:13px;font-weight:500;font-family:inherit;transition:all .15s;display:inline-flex;align-items:center;gap:6px;}
+.btn:hover{background:var(--surface2);}
+.btn-primary{background:var(--text);color:var(--bg);border-color:transparent;}
+.btn-primary:hover{opacity:.88;}
+.btn-danger{color:var(--red);}
+.btn-sm{padding:5px 11px;font-size:12px;}
+
+table{width:100%;border-collapse:collapse;font-size:13px;}
+th{text-align:left;padding:9px 10px;border-bottom:2px solid var(--border);color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;}
+td{padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:middle;}
+tr:last-child td{border-bottom:none;}
+tbody tr:hover td{background:var(--surface2);}
+
+.badge{display:inline-flex;align-items:center;gap:3px;font-size:11px;padding:3px 9px;border-radius:20px;font-weight:600;}
+.badge-ok{background:#dcfce7;color:#166534;}
+.badge-fail{background:#fee2e2;color:#991b1b;}
+
+.corr-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:10px;margin-bottom:1.25rem;}
+.corr-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.1rem;}
+.corr-r{font-size:22px;font-weight:700;margin:4px 0;letter-spacing:-0.02em;}
+.corr-label{font-size:12px;color:var(--muted);font-weight:500;}
+.corr-desc{font-size:11px;color:var(--muted);margin-top:2px;}
+
+.today-card{background:linear-gradient(135deg,var(--blue),var(--green));border-radius:var(--radius);padding:1.25rem 1.5rem;margin-bottom:1.25rem;color:#fff;display:flex;align-items:center;justify-content:space-between;gap:1rem;}
+.today-date{font-size:20px;font-weight:700;letter-spacing:-0.02em;}
+.today-sub{font-size:13px;opacity:.85;margin-top:3px;}
+.today-weather{text-align:right;font-size:13px;opacity:.9;}
+.today-temp{font-size:22px;font-weight:700;}
+
+.setting-row{display:flex;align-items:center;justify-content:space-between;padding:1rem 0;border-bottom:1px solid var(--border);}
+.setting-row:last-child{border-bottom:none;}
+.setting-label{font-size:14px;font-weight:500;}
+.setting-desc{font-size:12px;color:var(--muted);margin-top:2px;}
+.setting-control{display:flex;align-items:center;gap:8px;}
+.setting-control input{width:100px;padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:14px;text-align:center;font-family:inherit;}
+
+
+.toast{position:fixed;bottom:24px;right:24px;background:var(--text);color:var(--bg);padding:10px 18px;border-radius:10px;font-size:13px;font-weight:500;opacity:0;transform:translateY(8px);transition:all .25s;z-index:999;pointer-events:none;}
+.toast.show{opacity:1;transform:none;}
+
+.search-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;gap:10px;flex-wrap:wrap;}
+.search-row input{padding:7px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;font-family:inherit;width:160px;}
+.search-row input:focus{outline:none;border-color:var(--blue);}
+
+.legend{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:10px;font-size:12px;color:var(--muted);}
+.legend span{display:flex;align-items:center;gap:5px;}
+.ldot{width:10px;height:10px;border-radius:2px;display:inline-block;}
+
+@media(max-width:640px){
+  main{padding:1rem;}
+  .metrics{grid-template-columns:repeat(2,1fr);}
+  .form-grid{grid-template-columns:repeat(2,1fr);}
+  nav button{padding:6px 9px;font-size:12px;}
+  header h1 span{display:none;}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>
+    <i class="ti ti-shoe" style="font-size:20px;color:var(--blue);"></i>
+    <span>걸음수 분석 대시보드</span>
+  </h1>
+  <nav>
+    <button class="active" onclick="showTab('home',this)"><i class="ti ti-home"></i> 홈</button>
+    <button onclick="showTab('input',this)"><i class="ti ti-plus"></i> 입력</button>
+    <button onclick="showTab('charts',this)"><i class="ti ti-chart-bar"></i> 그래프</button>
+    <button onclick="showTab('corr',this)"><i class="ti ti-arrows-exchange"></i> 상관</button>
+    <button onclick="showTab('records',this)"><i class="ti ti-database"></i> 기록</button>
+    <button onclick="showTab('settings',this)"><i class="ti ti-settings"></i> 설정</button>
+  </nav>
+</header>
+
+<main>
+
+<!-- 홈 -->
+<div class="section active" id="tab-home">
+  <div class="today-card" id="today-card">
+    <div>
+      <div class="today-date" id="today-date">-</div>
+      <div class="today-sub" id="today-weekday">-</div>
+    </div>
+    <div class="today-weather">
+      <div class="today-temp" id="today-temp">-</div>
+      <div id="today-weather-text">날씨 불러오는 중...</div>
+      <div id="today-humidity" style="font-size:12px;opacity:.8;margin-top:2px;"></div>
+    </div>
+  </div>
+  <div class="metrics" id="home-metrics"></div>
+  <div class="reward" id="reward-card"></div>
+  <div class="grid2">
+    <div class="card">
+      <div class="card-title">최근 30일 걸음수</div>
+      <div class="legend">
+        <span><span class="ldot" style="background:var(--green);"></span>목표 달성</span>
+        <span><span class="ldot" style="background:var(--red);"></span>미달성</span>
+      </div>
+      <div class="chart-wrap" style="height:210px;"><canvas id="homeChart" role="img" aria-label="최근 걸음수 막대그래프"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">요일별 평균 걸음수</div>
+      <div class="chart-wrap" style="height:210px;"><canvas id="weekChart" role="img" aria-label="요일별 평균 걸음수"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- 입력 -->
+<div class="section" id="tab-input">
+  <div class="card">
+    <div class="card-title">오늘 데이터 입력</div>
+    <div class="form-grid">
+      <div class="field"><label>날짜</label><input type="date" id="in-date"></div>
+      <div class="field"><label>걸음수</label><input type="number" id="in-steps" placeholder="8500"></div>
+      <div class="field"><label>최고기온 (°C)</label><input type="number" id="in-tmax" placeholder="28" step="0.1"></div>
+      <div class="field"><label>최저기온 (°C)</label><input type="number" id="in-tmin" placeholder="18" step="0.1"></div>
+      <div class="field"><label>날씨</label>
+        <select id="in-weather">
+          <option value="맑음">☀️ 맑음</option>
+          <option value="구름많음">🌤 구름많음</option>
+          <option value="흐림">☁️ 흐림</option>
+          <option value="비">🌧 비</option>
+          <option value="눈">❄️ 눈</option>
+        </select>
+      </div>
+      <div class="field"><label>습도 (%)</label><input type="number" id="in-humid" placeholder="60"></div>
+      <div class="field"><label>수면시간 (h)</label><input type="number" id="in-sleep" placeholder="7.5" step="0.5"></div>
+      <div class="field"><label>목표 걸음수</label><input type="number" id="in-goal" value="10000"></div>
+    </div>
+    <button class="btn btn-primary" onclick="addEntry()" style="width:100%;justify-content:center;">
+      <i class="ti ti-device-floppy"></i> 저장하기
+    </button>
+  </div>
+
+  <div class="card">
+    <div class="card-title">CSV 가져오기 / 내보내기</div>
+    <div class="csv-hint">
+      헤더 형식: 날짜, 걸음수, 최고기온, 최저기온, 날씨, 습도, 수면시간<br>
+      예시: 2025-06-07, 8500, 28, 18, 맑음, 55, 7.5
+    </div>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+      <input type="file" id="csv-file" accept=".csv" style="font-size:13px;flex:1;min-width:180px;">
+      <button class="btn" onclick="importCSV()"><i class="ti ti-upload"></i> 불러오기</button>
+      <button class="btn" onclick="exportCSV()"><i class="ti ti-download"></i> CSV 내보내기</button>
+    </div>
+  </div>
+</div>
+
+<!-- 그래프 -->
+<div class="section" id="tab-charts">
+  <div class="card">
+    <div class="card-title">일별 걸음수 추이 (전체)</div>
+    <div class="legend">
+      <span><span class="ldot" style="background:var(--blue);opacity:.8;"></span>걸음수</span>
+      <span><span class="ldot" style="background:#1a1a18;"></span>7일 이동평균</span>
+      <span><span class="ldot" style="background:var(--red);opacity:.6;"></span>목표선</span>
+    </div>
+    <div class="chart-wrap" style="height:260px;"><canvas id="stepsLine" role="img" aria-label="일별 걸음수 선 그래프"></canvas></div>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <div class="card-title">평균기온 vs 걸음수</div>
+      <div class="chart-wrap" style="height:240px;"><canvas id="tempScatter" role="img" aria-label="기온 걸음수 산점도"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">날씨 유형별 평균 걸음수</div>
+      <div class="chart-wrap" style="height:240px;"><canvas id="weatherBar" role="img" aria-label="날씨별 걸음수 막대그래프"></canvas></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">월별 평균 걸음수</div>
+    <div class="chart-wrap" style="height:220px;"><canvas id="monthBar" role="img" aria-label="월별 평균 걸음수"></canvas></div>
+  </div>
+</div>
+
+<!-- 상관관계 -->
+<div class="section" id="tab-corr">
+  <div class="corr-grid" id="corr-grid"></div>
+  <div class="grid2">
+    <div class="card">
+      <div class="card-title">수면시간 vs 걸음수</div>
+      <div class="chart-wrap" style="height:240px;"><canvas id="sleepScatter" role="img" aria-label="수면 걸음수 산점도"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">누적 포인트 추이</div>
+      <div class="chart-wrap" style="height:240px;"><canvas id="pointsLine" role="img" aria-label="누적 포인트 선 그래프"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<!-- 기록 -->
+<div class="section" id="tab-records">
+  <div class="search-row">
+    <span id="rec-count" style="font-size:13px;color:var(--muted);font-weight:500;"></span>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <input type="text" id="search" placeholder="🔍 날짜 검색..." oninput="filterTable()">
+      <button class="btn btn-danger btn-sm" onclick="resetData()"><i class="ti ti-refresh"></i> 초기화</button>
+    </div>
+  </div>
+  <div class="card" style="padding:0;overflow:hidden;">
+    <div style="overflow-x:auto;">
+      <table>
+        <thead><tr>
+          <th>날짜</th><th>걸음수</th><th>최고°C</th><th>최저°C</th><th>날씨</th><th>습도</th><th>수면</th><th>달성</th><th></th>
+        </tr></thead>
+        <tbody id="rec-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- 설정 -->
+<div class="section" id="tab-settings">
+  <div class="card">
+    <div class="card-title">목표 설정</div>
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">하루 목표 걸음수</div>
+        <div class="setting-desc">한 번 설정하면 이후 모든 날에 자동 적용돼요</div>
+      </div>
+      <div class="setting-control">
+        <input type="number" id="set-goal" value="10000" step="500">
+        <button class="btn btn-primary" onclick="saveSettings()">저장</button>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">지역 설정 (기상청 격자 좌표)</div>
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">현재 지역</div>
+        <div class="setting-desc">기상청 격자 좌표 — <a href="https://www.weather.go.kr/w/observation/land/code.do" target="_blank" style="color:var(--blue);">좌표 찾기</a></div>
+      </div>
+      <div class="setting-control" style="gap:6px;">
+        <input type="number" id="set-nx" value="54" style="width:70px;" placeholder="NX">
+        <input type="number" id="set-ny" value="124" style="width:70px;" placeholder="NY">
+        <button class="btn btn-primary" onclick="saveSettings()">저장</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── 설정 ─────────────────────────────────
+async function renderSettings() {
+  const s = await fetch('/api/settings').then(r=>r.json());
+  document.getElementById('set-goal').value = s.goal || 10000;
+}
+
+async function saveSettings() {
+  const goal = parseInt(document.getElementById('set-goal').value) || 10000;
+  await fetch('/api/settings', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({goal})
+  });
+  await loadAll();
+  toast(`목표 걸음수 ${goal.toLocaleString()}보로 저장됐어요 ✓`);
+}
+
+// ── 오늘 날씨/날짜 카드 ───────────────────
+async function fetchTodayWeather() {
+  try {
+    const w = await fetch('/api/weather/today').then(r=>r.json());
+    document.getElementById('today-date').textContent = w.dateKr || '-';
+    document.getElementById('today-weekday').textContent = w.weekday ? `${w.weekday}요일 ${w.time}` : '-';
+    if (w.temp) {
+      document.getElementById('today-temp').textContent = `${w.temp}°C`;
+      document.getElementById('today-weather-text').textContent = w.weather || '';
+      document.getElementById('today-humidity').textContent = w.humidity ? `습도 ${w.humidity}%` : '';
+    } else {
+      document.getElementById('today-temp').textContent = '';
+      document.getElementById('today-weather-text').textContent = 'API 키 미설정';
+    }
+    // 입력 폼에도 자동 채우기
+    if (w.temp) {
+      document.getElementById('in-tmax').value = w.temp;
+      document.getElementById('in-humid').value = w.humidity || '';
+      if (w.weather) document.getElementById('in-weather').value = w.weather;
+    }
+  } catch(e) {
+    document.getElementById('today-weather-text').textContent = '날씨 불러오기 실패';
+  }
+}
+
+// ── 서버 API ─────────────────────────────
+let ALL = [];
+
+async function loadAll() {
+  const res = await fetch('/api/data');
+  ALL = await res.json();
+  ALL.sort((a,b) => a.date.localeCompare(b.date));
+  renderHome();
+}
+
+async function saveEntry(entry) {
+  await fetch('/api/add', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(entry)
+  });
+  await loadAll();
+}
+
+async function removeEntry(date) {
+  await fetch('/api/delete', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({date})
+  });
+  await loadAll();
+}
+
+// 오늘 날씨 자동 불러오기
+async function fetchTodayWeather() {
+  try {
+    const res = await fetch('/api/weather/today');
+    const w = await res.json();
+    if (w.temp) document.getElementById('in-tmax').value = w.temp;
+    if (w.humidity) document.getElementById('in-humid').value = w.humidity;
+    if (w.weather) document.getElementById('in-weather').value = w.weather;
+    if (Object.keys(w).length > 0) toast('오늘 날씨 자동 입력됨 ☀️');
+  } catch {}
+}
+
+// ── 탭 전환 ─────────────────────────────
+const RENDERERS = { home: renderHome, charts: renderCharts, corr: renderCorr, records: renderRecords, settings: renderSettings };
+function showTab(name, btn) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  btn.classList.add('active');
+  RENDERERS[name]?.();
+}
+const CI = {};
+function mkChart(id, config) {
+  CI[id]?.destroy();
+  CI[id] = new Chart(document.getElementById(id), config);
+}
+
+// ── 유틸 ─────────────────────────────────
+function corr(xs, ys) {
+  const n = xs.length; if (n < 2) return 0;
+  const mx = xs.reduce((a,b)=>a+b)/n, my = ys.reduce((a,b)=>a+b)/n;
+  const num = xs.reduce((s,x,i)=>s+(x-mx)*(ys[i]-my), 0);
+  const den = Math.sqrt(xs.reduce((s,x)=>s+(x-mx)**2,0) * ys.reduce((s,y)=>s+(y-my)**2,0));
+  return den ? +(num/den).toFixed(2) : 0;
+}
+function sorted() { return [...ALL].sort((a,b)=>a.date.localeCompare(b.date)); }
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(t._tid); t._tid = setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ── 홈 탭 ────────────────────────────────
+function renderHome() {
+  const d = sorted();
+  const n = d.length;
+  const avg = Math.round(d.reduce((s,r)=>s+r.steps,0)/n);
+  const achieved = d.filter(r=>r.steps>=r.goal).length;
+  const points = achieved - (n - achieved);
+  const best = Math.max(...d.map(r=>r.steps));
+
+  document.getElementById('home-metrics').innerHTML = `
+    <div class="metric"><div class="metric-label">평균 걸음수</div><div class="metric-value">${avg.toLocaleString()}</div><div class="metric-sub">일일 평균</div></div>
+    <div class="metric"><div class="metric-label">누적 포인트</div><div class="metric-value" style="color:${points>=0?'var(--green)':'var(--red)'}">${points>0?'+':''}${points}</div><div class="metric-sub">목표 기준 점수</div></div>
+    <div class="metric"><div class="metric-label">목표 달성률</div><div class="metric-value">${Math.round(achieved/n*100)}%</div><div class="metric-sub">${achieved} / ${n}일</div></div>
+    <div class="metric"><div class="metric-label">최고 기록</div><div class="metric-value">${best.toLocaleString()}</div><div class="metric-sub">보 (역대 최고)</div></div>
+  `;
+
+  const pct = Math.min(100, Math.max(0, points/30*100));
+  document.getElementById('reward-card').innerHTML = `
+    <div style="font-size:32px;line-height:1;">🍗</div>
+    <div class="reward-info">
+      <div class="reward-title">치킨 보상까지</div>
+      <div class="prog-bar"><div class="prog-fill" style="width:${pct}%"></div></div>
+      <div class="reward-sub">${points>=30 ? '🎉 치킨 보상 달성!' : `현재 ${points}점 · ${30-points}점 더 필요`}</div>
+    </div>
+    <div style="font-size:15px;font-weight:700;color:var(--blue);">${points}<span style="font-size:11px;font-weight:400;color:var(--muted);">/30</span></div>
+  `;
+
+  const recent = d.slice(-30);
+  mkChart('homeChart', {
+    type:'bar',
+    data:{ labels: recent.map(r=>r.date.slice(5)),
+      datasets:[{ label:'걸음수', data: recent.map(r=>r.steps),
+        backgroundColor: recent.map(r=>r.steps>=r.goal?'rgba(29,158,117,.75)':'rgba(232,90,43,.6)'),
+        borderRadius:4 }]},
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false} },
+      scales:{ x:{ticks:{font:{size:10},autoSkip:true,maxRotation:45}}, y:{ticks:{callback:v=>v.toLocaleString(),font:{size:10}}} }}
+  });
+
+  const days = ['일','월','화','수','목','금','토'];
+  const byDay = Array(7).fill(null).map(()=>[]);
+  d.forEach(r=>byDay[new Date(r.date).getDay()].push(r.steps));
+  const dayAvg = byDay.map(arr=>arr.length?Math.round(arr.reduce((a,b)=>a+b)/arr.length):0);
+  mkChart('weekChart', {
+    type:'bar',
+    data:{ labels:days,
+      datasets:[{ label:'평균', data:dayAvg,
+        backgroundColor:days.map((_,i)=>i>=5?'rgba(232,184,75,.8)':'rgba(50,102,173,.7)'),
+        borderRadius:4 }]},
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false} },
+      scales:{ x:{ticks:{font:{size:13}}}, y:{ticks:{callback:v=>v.toLocaleString(),font:{size:10}}} }}
+  });
+}
+
+// ── 그래프 탭 ────────────────────────────
+function renderCharts() {
+  const d = sorted();
+
+  const roll7 = d.map((_,i)=>{
+    const sl = d.slice(Math.max(0,i-6),i+1);
+    return Math.round(sl.reduce((s,r)=>s+r.steps,0)/sl.length);
+  });
+  mkChart('stepsLine', {
+    type:'line',
+    data:{ labels: d.map(r=>r.date.slice(5)),
+      datasets:[
+        {label:'걸음수', data:d.map(r=>r.steps), borderColor:'rgba(50,102,173,.8)', backgroundColor:'rgba(50,102,173,.07)', tension:.3, pointRadius:1.5, fill:true},
+        {label:'7일 평균', data:roll7, borderColor:'rgba(0,0,0,.7)', borderDash:[5,3], pointRadius:0, tension:.4},
+        {label:'목표', data:d.map(r=>r.goal), borderColor:'rgba(232,90,43,.5)', borderDash:[7,5], pointRadius:0}
+      ]},
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{labels:{font:{size:11},boxWidth:12}} },
+      scales:{ x:{ticks:{font:{size:9},autoSkip:true,maxRotation:45}}, y:{ticks:{callback:v=>v.toLocaleString(),font:{size:10}}} }}
+  });
+
+  mkChart('tempScatter', {
+    type:'scatter',
+    data:{ datasets:[{ label:'평균기온 vs 걸음수',
+      data: d.map(r=>({ x:+((r.tmax+r.tmin)/2).toFixed(1), y:r.steps })),
+      backgroundColor:'rgba(50,102,173,.4)', pointRadius:5 }]},
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false} },
+      scales:{ x:{title:{display:true,text:'평균기온 (°C)',font:{size:11}}},
+               y:{title:{display:true,text:'걸음수',font:{size:11}},ticks:{callback:v=>v.toLocaleString()}} }}
+  });
+
+  const wTypes=['맑음','구름많음','흐림','비','눈'];
+  const wColors=['rgba(232,184,75,.85)','rgba(136,135,128,.7)','rgba(180,178,169,.7)','rgba(50,102,173,.8)','rgba(109,187,218,.85)'];
+  const wAvg = wTypes.map(w=>{ const s=d.filter(r=>r.weather===w).map(r=>r.steps); return s.length?Math.round(s.reduce((a,b)=>a+b)/s.length):0; });
+  mkChart('weatherBar', {
+    type:'bar',
+    data:{ labels:wTypes, datasets:[{label:'평균', data:wAvg, backgroundColor:wColors, borderRadius:5}]},
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false} },
+      scales:{ x:{ticks:{font:{size:12},autoSkip:false}}, y:{ticks:{callback:v=>v.toLocaleString(),font:{size:10}}} }}
+  });
+
+  const byMonth={};
+  d.forEach(r=>{ const m=r.date.slice(0,7); (byMonth[m]=byMonth[m]||[]).push(r.steps); });
+  const mK=Object.keys(byMonth).sort();
+  mkChart('monthBar', {
+    type:'bar',
+    data:{ labels:mK, datasets:[{label:'월평균', data:mK.map(m=>Math.round(byMonth[m].reduce((a,b)=>a+b)/byMonth[m].length)), backgroundColor:'rgba(29,158,117,.75)', borderRadius:5}]},
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false} },
+      scales:{ x:{ticks:{font:{size:11},autoSkip:false}}, y:{ticks:{callback:v=>v.toLocaleString(),font:{size:10}}} }}
+  });
+}
+
+// ── 상관관계 탭 ──────────────────────────
+function renderCorr() {
+  const d = sorted();
+  const steps = d.map(r=>r.steps);
+  const pairs = [
+    {label:'vs 최고기온', icon:'ti-temperature-sun', vals:d.map(r=>r.tmax)},
+    {label:'vs 최저기온', icon:'ti-temperature-minus', vals:d.map(r=>r.tmin)},
+    {label:'vs 평균기온', icon:'ti-thermometer', vals:d.map(r=>(r.tmax+r.tmin)/2)},
+    {label:'vs 일교차', icon:'ti-arrows-up-down', vals:d.map(r=>r.tmax-r.tmin)},
+    {label:'vs 습도', icon:'ti-droplet', vals:d.map(r=>r.humidity)},
+    {label:'vs 수면시간', icon:'ti-moon', vals:d.map(r=>r.sleep)},
+  ];
+
+  document.getElementById('corr-grid').innerHTML = pairs.map(p => {
+    const r = corr(steps, p.vals);
+    const col = r>0.3?'var(--green)':r<-0.3?'var(--red)':'var(--muted)';
+    const str = Math.abs(r)>0.5?'강한':Math.abs(r)>0.3?'중간':'약한';
+    return `<div class="corr-card">
+      <div class="corr-label"><i class="ti ${p.icon}" style="margin-right:4px;"></i>${p.label}</div>
+      <div class="corr-r" style="color:${col}">r = ${r}</div>
+      <div class="corr-desc">${str} ${r>=0?'양':'음'}의 상관</div>
+    </div>`;
+  }).join('');
+
+  mkChart('sleepScatter', {
+    type:'scatter',
+    data:{ datasets:[{label:'수면 vs 걸음수',
+      data:d.map(r=>({x:r.sleep,y:r.steps})),
+      backgroundColor:d.map(r=>r.weather==='비'?'rgba(50,102,173,.55)':'rgba(29,158,117,.45)'),
+      pointRadius:5}]},
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false} },
+      scales:{ x:{title:{display:true,text:'수면시간 (h)',font:{size:11}},min:4,max:10},
+               y:{title:{display:true,text:'걸음수',font:{size:11}},ticks:{callback:v=>v.toLocaleString()}} }}
+  });
+
+  let cum = 0;
+  const pts = d.map(r=>{ cum += r.steps>=r.goal?1:-1; return cum; });
+  mkChart('pointsLine', {
+    type:'line',
+    data:{ labels:d.map(r=>r.date.slice(5)),
+      datasets:[
+        {label:'누적 포인트', data:pts, borderColor:'var(--blue)', backgroundColor:'rgba(50,102,173,.08)', fill:true, tension:.3, pointRadius:1},
+        {label:'치킨 목표 (30)', data:d.map(()=>30), borderColor:'var(--amber)', borderDash:[5,4], pointRadius:0}
+      ]},
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{labels:{font:{size:11},boxWidth:12}} },
+      scales:{ x:{ticks:{font:{size:9},autoSkip:true,maxRotation:45}}, y:{ticks:{font:{size:10}}} }}
+  });
+}
+
+// ── 기록 탭 ──────────────────────────────
+function renderRecords() { filterTable(); }
+
+function filterTable() {
+  const q = (document.getElementById('search').value||'').toLowerCase();
+  const rows = ALL.filter(r=>r.date.includes(q)).sort((a,b)=>b.date.localeCompare(a.date));
+  document.getElementById('rec-count').textContent = `총 ${rows.length}일 기록`;
+  document.getElementById('rec-body').innerHTML = rows.slice(0,200).map(r=>`
+    <tr>
+      <td style="font-weight:500;">${r.date}</td>
+      <td><strong>${r.steps.toLocaleString()}</strong></td>
+      <td>${r.tmax}°</td><td>${r.tmin}°</td>
+      <td>${r.weather}</td>
+      <td>${r.humidity}%</td>
+      <td>${r.sleep}h</td>
+      <td><span class="badge ${r.steps>=r.goal?'badge-ok':'badge-fail'}">${r.steps>=r.goal?'✓ 달성':'✗ 미달'}</span></td>
+      <td><button class="btn btn-sm btn-danger" onclick="deleteEntry('${r.date}')"><i class="ti ti-trash"></i></button></td>
+    </tr>`).join('');
+}
+
+// ── CRUD ─────────────────────────────────
+async function addEntry() {
+  const entry = {
+    date:    document.getElementById('in-date').value,
+    steps:   parseInt(document.getElementById('in-steps').value)||0,
+    tmax:    parseFloat(document.getElementById('in-tmax').value)||20,
+    tmin:    parseFloat(document.getElementById('in-tmin').value)||10,
+    weather: document.getElementById('in-weather').value,
+    humidity:parseInt(document.getElementById('in-humid').value)||60,
+    sleep:   parseFloat(document.getElementById('in-sleep').value)||7,
+    goal:    parseInt(document.getElementById('in-goal').value)||10000,
+  };
+  if (!entry.date || !entry.steps) { toast('날짜와 걸음수를 입력하세요'); return; }
+  await saveEntry(entry);
+  toast('저장되었습니다 ✓');
+}
+
+async function deleteEntry(date) {
+  if (!confirm(`${date} 데이터를 삭제할까요?`)) return;
+  await removeEntry(date);
+  toast('삭제되었습니다');
+}
+
+async function resetData() {
+  if (!confirm('모든 데이터를 초기화하고 샘플 데이터로 되돌릴까요?')) return;
+  await fetch('/api/delete-all', {method:'POST'});
+  await loadAll();
+  toast('샘플 데이터로 초기화되었습니다');
+}
+
+// ── CSV 가져오기/내보내기 ─────────────────
+async function importCSV() {
+  const file = document.getElementById('csv-file').files[0];
+  if (!file) { toast('파일을 선택하세요'); return; }
+  const form = new FormData();
+  form.append('file', file);
+  const res = await fetch('/api/import', {method:'POST', body:form});
+  const json = await res.json();
+  await loadAll();
+  toast(`${json.added}개 새 데이터 추가됨`);
+}
+
+function exportCSV() { window.location.href = '/api/export'; }
+
+// ── 초기화 ───────────────────────────────
+document.getElementById('in-date').value = new Date().toISOString().slice(0,10);
+fetchTodayWeather();
+loadAll();
+</script>
+</body>
+</html>
