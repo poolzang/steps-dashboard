@@ -12,7 +12,7 @@ def load_settings():
     if os.path.exists(SETTINGS_FILE):
         with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
-    return {"goal": 10000}
+    return {"goal": int(os.environ.get("DEFAULT_GOAL", 10000))}
 
 def save_settings(s):
     with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
