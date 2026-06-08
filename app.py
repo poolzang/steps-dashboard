@@ -54,9 +54,11 @@ def get_today_weather():
     try:
         now = datetime.now()
         # base_time은 1시간 전 정시로
-        base_time = (now - timedelta(hours=1)).strftime("%H00")
-        base_date = now.strftime("%Y%m%d")
-        nx, ny = 60, 127  # 서울 좌표
+        kst = timedelta(hours=9)
+        now_kst = datetime.utcnow() + kst
+        base_time = (now_kst - timedelta(hours=1)).strftime("%H00")
+        base_date = now_kst.strftime("%Y%m%d")
+        nx, ny = 35, 126  # 광주 좌표
         url = "http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtNcst"
         params = {
             "serviceKey": WEATHER_API_KEY,
