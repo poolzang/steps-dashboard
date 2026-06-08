@@ -53,22 +53,37 @@ def get_today_weather():
         return None
     try:
         now = datetime.now()
-        nx, ny = 54, 124
+        # base_time은 1시간 전 정시로
+        base_time = (now - timedelta(hours=1)).strftime("%H00")
+        base_date = now.strftime("%Y%m%d")
+        nx, ny = 60, 127  # 서울 좌표
         url = "http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtNcst"
-        params = {"serviceKey": WEATHER_API_KEY, "numOfRows": 10, "pageNo": 1,
-                  "dataType": "JSON", "base_date": now.strftime("%Y%m%d"),
-                  "base_time": "0600", "nx": nx, "ny": ny}
+        params = {
+            "serviceKey": WEATHER_API_KEY,
+            "numOfRows": 10, "pageNo": 1,
+            "dataType": "JSON",
+            "base_date": base_date,
+            "base_time": base_time,
+            "nx": nx, "ny": ny,
+        }
         res = requests.get(url, params=params, timeout=5)
         items = res.json()["response"]["body"]["items"]["item"]
         result = {}
         for item in items:
-            if item["category"] == "T1H": result["temp"] = float(item["obsrValue"])
-            if item["category"] == "REH": result["humidity"] = int(item["obsrValue"])
+            if item["category"] == "T1H":
+                result["temp"] = float(item["obsrValue"])
+            if item["category"] == "REH":
+                result["humidity"] = int(item["obsrValue"])
             if item["category"] == "PTY":
                 pty = int(item["obsrValue"])
                 result["weather"] = "비" if pty in [1,4] else "눈" if pty in [2,3] else "맑음"
+            if item["category"] == "SKY" and "weather" not in result:
+                sky = int(item["obsrValue"])
+                result["weather"] = "맑음" if sky==1 else "구름많음" if sky==3 else "흐림"
         return result
-    except: return None
+    except Exception as e:
+        print("날씨 API 오류:", e)
+        return None
 
 @app.route("/")
 def index():
